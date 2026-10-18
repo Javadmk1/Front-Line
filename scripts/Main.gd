@@ -93,6 +93,19 @@ func _draw() -> void:
 	for i in range(regions.size()):
 		_draw_region(i)
 	_draw_hud()
+	if game_over:
+		_draw_end_overlay()
+
+func _draw_end_overlay() -> void:
+	var panel := Rect2(Vector2(330, 235), Vector2(620, 250))
+	draw_rect(panel, Color(0.04, 0.07, 0.07, 0.96), true)
+	draw_rect(panel, Color("#e3c978") if mission_won else Color("#cf6257"), false, 3.0)
+	var heading := "MISSION COMPLETE" if mission_won else "MISSION FAILED"
+	var detail := "Enemy headquarters secured." if mission_won else "Your forces have lost the sector."
+	draw_string(ThemeDB.fallback_font, Vector2(390, 300), heading, HORIZONTAL_ALIGNMENT_CENTER, 500, 34, Color("#f0ead7"))
+	draw_string(ThemeDB.fallback_font, Vector2(390, 340), detail, HORIZONTAL_ALIGNMENT_CENTER, 500, 18, Color("#b7c8bc"))
+	draw_string(ThemeDB.fallback_font, Vector2(390, 375), "Turns completed: %d" % turn_number, HORIZONTAL_ALIGNMENT_CENTER, 500, 16, Color("#a9b7a9"))
+	_draw_button(Rect2(Vector2(490, 405), Vector2(300, 58)), "START NEW CAMPAIGN", Color("#477d68"))
 
 func _draw_menu() -> void:
 	draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color("#182321"))
@@ -187,8 +200,11 @@ func _handle_tap(pos: Vector2) -> void:
 		queue_redraw()
 		return
 	if game_over:
-		message = "Mission ended. Tap RESTART to play again."
-		queue_redraw()
+		if Rect2(Vector2(490, 405), Vector2(300, 58)).has_point(pos):
+			_restart_game()
+		else:
+			message = "Mission ended. Choose START NEW CAMPAIGN."
+			queue_redraw()
 		return
 	if Rect2(Vector2(810, 618), Vector2(125, 54)).has_point(pos):
 		_reinforce_selected()
