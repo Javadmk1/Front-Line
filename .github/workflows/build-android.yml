@@ -18,8 +18,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check Godot version
-        run: godot --version
+      - name: Prepare Godot Android export environment
+        run: |
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          mkdir -p "$HOME/.config"
+          cp -a /root/.local/share/godot/export_templates/4.3.stable "$HOME/.local/share/godot/export_templates/"
+          cp -a /root/.config/godot "$HOME/.config/"
+          test -f "$HOME/.config/godot/editor_settings-4.3.tres"
+          test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          godot --version
 
       - name: Import and validate project
         run: godot --headless --path . --editor --quit
@@ -28,6 +35,7 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/FrontLine-Android-Debug.apk
+          test -s build/FrontLine-Android-Debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
