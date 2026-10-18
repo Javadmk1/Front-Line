@@ -38,7 +38,12 @@ jobs:
           sed -i "s|^export/android/debug_keystore = .*|export/android/debug_keystore = \"$HOME/.android/debug.keystore\"|" "$SETTINGS"
           sed -i "s|^export/android/debug_keystore_user = .*|export/android/debug_keystore_user = \"androiddebugkey\"|" "$SETTINGS"
           echo "Android SDK, Java, and debug keystore paths configured."
-          grep -E 'export/android/.*(sdk_path)' "$SETTINGS" || true
+          echo "--- Android export settings ---"
+          grep -E '^export/android/' "$SETTINGS" || true
+          echo "--- Android template files ---"
+          find "$HOME/.local/share/godot/export_templates/4.3.stable" -maxdepth 1 -type f -printf "%f %s bytes\\n" | sort
+          echo "--- SDK build tools ---"
+          find /usr/lib/android-sdk/build-tools -maxdepth 2 -type f \\( -name aapt -o -name apksigner -o -name zipalign \\) -print 2>/dev/null || true
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
           echo "Checking Android SDK packages"
