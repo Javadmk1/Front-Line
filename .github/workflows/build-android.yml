@@ -26,6 +26,9 @@ jobs:
           cp -a /root/.config/godot "$HOME/.config/"
           mkdir -p "$HOME/.android"
           if [ -f /root/.android/debug.keystore ]; then cp /root/.android/debug.keystore "$HOME/.android/debug.keystore"; fi
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          fi
           test -f "$HOME/.config/godot/editor_settings-4.3.tres"
           test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
           export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
