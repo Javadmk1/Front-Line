@@ -1,0 +1,38 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-android:
+    name: Export Godot project to Android APK
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Godot version
+        run: godot --version
+
+      - name: Import and validate project
+        run: godot --headless --path . --editor --quit
+
+      - name: Export debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/FrontLine-Android-Debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrontLine-Android-Debug
+          path: build/FrontLine-Android-Debug.apk
+          if-no-files-found: error
+          retention-days: 14
