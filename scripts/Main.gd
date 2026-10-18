@@ -38,12 +38,21 @@ func _build_map() -> void:
 		var col := i % 5
 		var row := int(i / 5)
 		var pos := Vector2(150.0 + col * 245.0, 210.0 + row * 150.0)
+		var terrain_name := "plain"
+		if i == 3 or i == 11:
+			terrain_name = "forest"
+		elif i == 4 or i == 8:
+			terrain_name = "river"
+		elif i == 7:
+			terrain_name = "hill"
+		elif i == 9:
+			terrain_name = "depot"
 		regions.append({
 			"name": region_names[i],
 			"pos": pos,
 			"owner": 0,
 			"troops": 1,
-			"terrain": "plain"
+			"terrain": terrain_name
 		})
 	for row in range(3):
 		for col in range(5):
@@ -126,6 +135,18 @@ func _draw_region(index: int) -> void:
 	draw_circle(pos, 23.0, color.lightened(0.12))
 	if index == selected_region:
 		draw_arc(pos, 40.0, 0.0, TAU, 48, SELECT_COLOR, 4.0, true)
+	var terrain_mark := ""
+	match str(region["terrain"]):
+		"forest":
+			terrain_mark = "♣"
+		"river":
+			terrain_mark = "≈"
+		"hill":
+			terrain_mark = "▲"
+		"depot":
+			terrain_mark = "+"
+	if not terrain_mark.is_empty():
+		draw_string(ThemeDB.fallback_font, pos + Vector2(20, -18), terrain_mark, HORIZONTAL_ALIGNMENT_CENTER, 18, 13, Color("#f5d76e"))
 	draw_string(ThemeDB.fallback_font, pos + Vector2(-8, 6), str(troops), HORIZONTAL_ALIGNMENT_CENTER, 18, 19, Color("#ffffff"))
 	draw_string(ThemeDB.fallback_font, pos + Vector2(-85, 57), str(region["name"]), HORIZONTAL_ALIGNMENT_CENTER, 170, 16, Color("#e5e2d4"))
 	if index == 14:
@@ -224,8 +245,10 @@ func _move_or_attack(from: int, to: int) -> void:
 		message = "Moved %d troop group(s) to %s." % [moved, regions[to]["name"]]
 		_save_game()
 		return
-	var attack_power: int = attacker * 20 + randi_range(-5, 10)
-	var defense_power: int = defender * 18 + (12 if defender_owner == ENEMY else 0) + randi_range(0, 8)
+	var attack_bonus: int = _terrain_bonus(str(regions[from]["terrain"]))
+	var defense_bonus: int = _terrain_bonus(str(regions[to]["terrain"]))
+	var attack_power: int = attacker * 20 + attack_bonus + randi_range(-5, 10)
+	var defense_power: int = defender * 18 + defense_bonus + (12 if defender_owner == ENEMY else 0) + randi_range(0, 8)
 	if attack_power > defense_power:
 		var survivors: int = max(1, attacker - max(1, int(defense_power / 25)))
 		regions[to]["owner"] = PLAYER
@@ -258,13 +281,15 @@ func _reinforce_selected() -> void:
 func _end_turn() -> void:
 	turn_number += 1
 	var income := _count_owned(PLAYER)
+	if int(regions[9]["owner"]) == PLAYER:
+		income += 2
 	coins += income
 	_enemy_action()
 	if not game_over:
 		for i in range(regions.size()):
 			if int(regions[i]["owner"]) == PLAYER and int(regions[i]["troops"]) < 5:
 				regions[i]["troops"] = int(regions[i]["troops"]) + 1
-		message = "Turn %d: +%d supplies delivered. Reinforce or expand." % [turn_number, income]
+		message = "Turn %d: +%d supplies delivered. Depot gives +2." % [turn_number, income]
 	_check_end_state()
 	_save_game()
 	queue_redraw()
@@ -302,6 +327,19 @@ func _enemy_action() -> void:
 				regions[n]["troops"] = 2
 				message = "Enemy advanced into %s." % regions[n]["name"]
 				return
+
+func _terrain_bonus(terrain: String) -> int:
+	match terrain:
+		"forest":
+			return 10
+		"river":
+			return 8
+		"hill":
+			return 14
+		"depot":
+			return 4
+		_:
+			return 0
 
 func _check_end_state() -> void:
 	if _count_owned(PLAYER) == 0:
