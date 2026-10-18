@@ -8,6 +8,8 @@ A lightweight offline 2D tactical strategy prototype built with Godot 4 for Andr
 - Tap a friendly territory, then a connected territory to attack or transfer troops
 - Enemy counterattacks and advances into neutral territories
 - Turn-based supplies: owned territories generate resources and friendly troops recover
+- Terrain combat modifiers: forests, rivers, and hills provide defensive advantages
+- Capturing the Supply Depot increases income by 2 supplies per turn
 - Reinforce a selected friendly territory by spending 3 supplies
 - Automatic local save for turn, supplies, territory ownership, and troop counts
 - Restartable campaign
