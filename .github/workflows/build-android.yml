@@ -26,6 +26,49 @@ jobs:
           cp -a /root/.config/godot "$HOME/.config/"
           test -f "$HOME/.config/godot/editor_settings-4.3.tres"
           test -f "$HOME/.local/share/godot/export_templates/4.3.stable/android_debug.apk"
+          export JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+          export GODOT_SETTINGS="$HOME/.config/godot/editor_settings-4.3.tres"
+          python3 - <<'PY'
+          import os, re
+          path = os.environ["GODOT_SETTINGS"]
+          text = open(path, encoding="utf-8").read()
+          settings = {
+              "export/android/android_sdk_path": "/usr/lib/android-sdk",
+              "export/android/java_sdk_path": os.environ["JAVA_HOME"],
+          }
+          for key, value in settings.items():
+              line = f'{key} = "{value}"'
+              pattern = rf'(?m)^{re.escape(key)}\\s*=.*
+      - name: Import and validate project
+        run: godot --headless --path . --editor --quit
+
+      - name: Export debug APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/FrontLine-Android-Debug.apk
+          test -s build/FrontLine-Android-Debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrontLine-Android-Debug
+          path: build/FrontLine-Android-Debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+              if re.search(pattern, text):
+                  text = re.sub(pattern, lambda _: line, text)
+              else:
+                  text = text.replace("[resource]", "[resource]\\n" + line, 1)
+          open(path, "w", encoding="utf-8").write(text)
+          print("Configured Android SDK and Java paths:")
+          for line in text.splitlines():
+              if "export/android/" in line and ("sdk_path" in line):
+                  print(line)
+          PY
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          ls -la /usr/lib/android-sdk
           godot --version
 
       - name: Import and validate project
