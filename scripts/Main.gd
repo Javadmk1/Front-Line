@@ -17,6 +17,7 @@ var coins: int = 10
 var message: String = "Select a blue region, then tap a connected region."
 var game_over: bool = false
 var mission_won: bool = false
+var show_menu: bool = true
 
 var region_names := [
 	"West Base", "Old Road", "North Field", "Pine Woods", "River Bend",
@@ -71,6 +72,9 @@ func _set_region(index: int, owner: int, troops: int) -> void:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), MAP_BG)
+	if show_menu:
+		_draw_menu()
+		return
 	_draw_background_details()
 	for link in links:
 		var a: Vector2 = regions[link.x]["pos"]
@@ -80,6 +84,23 @@ func _draw() -> void:
 	for i in range(regions.size()):
 		_draw_region(i)
 	_draw_hud()
+
+func _draw_menu() -> void:
+	draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color("#182321"))
+	for i in range(14):
+		var x := 30.0 + float(i) * 95.0
+		draw_line(Vector2(x, 0), Vector2(x - 70, 720), Color(0.7, 0.8, 0.7, 0.035), 1.0)
+	draw_rect(Rect2(Vector2(65, 70), Vector2(1150, 560)), Color("#222f2b"), true)
+	draw_rect(Rect2(Vector2(65, 70), Vector2(1150, 560)), Color("#65786b"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(130, 165), "FRONT LINE", HORIZONTAL_ALIGNMENT_LEFT, 800, 58, Color("#f0ead7"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 210), "OFFLINE TACTICAL CAMPAIGN", HORIZONTAL_ALIGNMENT_LEFT, 800, 20, Color("#a9b7a9"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 280), "COMMANDER, YOUR SECTOR NEEDS YOU.", HORIZONTAL_ALIGNMENT_LEFT, 850, 24, Color("#e3c978"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 320), "Capture territories, manage supplies, reinforce units,", HORIZONTAL_ALIGNMENT_LEFT, 900, 19, Color("#d4ddd2"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 350), "and push toward the enemy headquarters.", HORIZONTAL_ALIGNMENT_LEFT, 900, 19, Color("#d4ddd2"))
+	_draw_button(Rect2(Vector2(135, 410), Vector2(280, 68)), "CONTINUE CAMPAIGN", Color("#477d68"))
+	_draw_button(Rect2(Vector2(435, 410), Vector2(280, 68)), "NEW CAMPAIGN", Color("#b94f43"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 535), "15 TERRITORIES  •  LOCAL SAVE  •  NO SERVER REQUIRED", HORIZONTAL_ALIGNMENT_LEFT, 950, 16, Color("#a9b7a9"))
+	draw_string(ThemeDB.fallback_font, Vector2(135, 570), "Prototype build 0.3  |  Designed for offline play", HORIZONTAL_ALIGNMENT_LEFT, 950, 14, Color("#7f9284"))
 
 func _draw_background_details() -> void:
 	for i in range(16):
@@ -115,9 +136,9 @@ func _draw_hud() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(42, 630), "TURN %d" % turn_number, HORIZONTAL_ALIGNMENT_LEFT, 120, 17, Color("#f5d76e"))
 	draw_string(ThemeDB.fallback_font, Vector2(42, 655), message, HORIZONTAL_ALIGNMENT_LEFT, 800, 16, Color("#f1f1e8"))
 	draw_string(ThemeDB.fallback_font, Vector2(42, 680), "Tap blue then adjacent region • Reinforce costs 3 supplies", HORIZONTAL_ALIGNMENT_LEFT, 700, 13, Color("#aeb9ad"))
-	_draw_button(Rect2(Vector2(835, 618), Vector2(125, 54)), "REINFORCE", Color("#477d68"))
-	_draw_button(Rect2(Vector2(970, 618), Vector2(125, 54)), "END TURN", Color("#b94f43") if not game_over else Color("#56645a"))
-	_draw_button(Rect2(Vector2(1105, 618), Vector2(125, 54)), "RESTART", Color("#586c83"))
+	_draw_button(Rect2(Vector2(810, 618), Vector2(125, 54)), "REINFORCE", Color("#477d68"))
+	_draw_button(Rect2(Vector2(945, 618), Vector2(125, 54)), "END TURN", Color("#b94f43") if not game_over else Color("#56645a"))
+	_draw_button(Rect2(Vector2(1080, 618), Vector2(150, 54)), "MENU", Color("#586c83"))
 
 func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_rect(rect, color, true)
@@ -131,17 +152,27 @@ func _input(event: InputEvent) -> void:
 		_handle_tap(event.position)
 
 func _handle_tap(pos: Vector2) -> void:
-	if Rect2(Vector2(1105, 618), Vector2(125, 54)).has_point(pos):
-		_restart_game()
+	if show_menu:
+		if Rect2(Vector2(135, 410), Vector2(280, 68)).has_point(pos):
+			show_menu = false
+			message = "Campaign resumed. Select a blue region to begin."
+		elif Rect2(Vector2(435, 410), Vector2(280, 68)).has_point(pos):
+			_restart_game()
+		queue_redraw()
+		return
+	if Rect2(Vector2(1080, 618), Vector2(150, 54)).has_point(pos):
+		show_menu = true
+		selected_region = -1
+		queue_redraw()
 		return
 	if game_over:
 		message = "Mission ended. Tap RESTART to play again."
 		queue_redraw()
 		return
-	if Rect2(Vector2(835, 618), Vector2(125, 54)).has_point(pos):
+	if Rect2(Vector2(810, 618), Vector2(125, 54)).has_point(pos):
 		_reinforce_selected()
 		return
-	if Rect2(Vector2(970, 618), Vector2(125, 54)).has_point(pos):
+	if Rect2(Vector2(945, 618), Vector2(125, 54)).has_point(pos):
 		_end_turn()
 		return
 	var hit := _find_region(pos)
@@ -330,5 +361,6 @@ func _restart_game() -> void:
 	mission_won = false
 	message = "New campaign started. Capture the enemy HQ!"
 	_build_map()
+	show_menu = false
 	_save_game()
 	queue_redraw()
