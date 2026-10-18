@@ -218,7 +218,7 @@ func _handle_tap(pos: Vector2) -> void:
 	if selected_region == -1:
 		if int(regions[hit]["owner"]) == PLAYER:
 			selected_region = hit
-			message = "Selected %s. Choose a connected region." % regions[hit]["name"]
+			message = "Selected %s: %s terrain (+%d combat). Choose a connected region." % [regions[hit]["name"], str(regions[hit]["terrain"]), _terrain_bonus(str(regions[hit]["terrain"]))]
 		else:
 			message = "Select one of your blue regions first."
 	elif hit == selected_region:
