@@ -37,6 +37,23 @@ jobs:
           sed -i "s|^export/android/java_sdk_path = .*|export/android/java_sdk_path = \"$JAVA_HOME\"|" "$SETTINGS"
           sed -i "s|^export/android/debug_keystore = .*|export/android/debug_keystore = \"$HOME/.android/debug.keystore\"|" "$SETTINGS"
           sed -i "s|^export/android/debug_keystore_user = .*|export/android/debug_keystore_user = \"androiddebugkey\"|" "$SETTINGS"
+          PRESET="export_presets.cfg"
+          test -f "$PRESET"
+          if grep -q '^keystore/debug=' "$PRESET"; then
+            sed -i "s|^keystore/debug=.*|keystore/debug=\"$HOME/.android/debug.keystore\"|" "$PRESET"
+          else
+            sed -i '/^\[preset\.0\.options\]/a keystore/debug=\"'$HOME'/.android/debug.keystore\"' "$PRESET"
+          fi
+          if grep -q '^keystore/debug_user=' "$PRESET"; then
+            sed -i 's|^keystore/debug_user=.*|keystore/debug_user="androiddebugkey"|' "$PRESET"
+          else
+            sed -i '/^\[preset\.0\.options\]/a keystore/debug_user="androiddebugkey"' "$PRESET"
+          fi
+          if grep -q '^keystore/debug_password=' "$PRESET"; then
+            sed -i 's|^keystore/debug_password=.*|keystore/debug_password="android"|' "$PRESET"
+          else
+            sed -i '/^\[preset\.0\.options\]/a keystore/debug_password="android"' "$PRESET"
+          fi
           echo "Android SDK, Java, and debug keystore paths configured."
           echo "--- Android export settings ---"
           grep -E '^export/android/' "$SETTINGS" || true
