@@ -43,14 +43,14 @@ jobs:
           echo "--- Android template files ---"
           find "$HOME/.local/share/godot/export_templates/4.3.stable" -maxdepth 1 -type f -printf "%f %s bytes\\n" | sort
           echo "--- SDK build tools ---"
-          find /usr/lib/android-sdk/build-tools -maxdepth 2 -type f \\( -name aapt -o -name apksigner -o -name zipalign \\) -print 2>/dev/null || true
+          for tool in aapt apksigner zipalign; do find /usr/lib/android-sdk/build-tools -type f -name "$tool" -print 2>/dev/null || true; done
           echo "JAVA_HOME=$JAVA_HOME"
           java -version
           echo "Checking Android SDK packages"
           find /usr/lib/android-sdk -maxdepth 3 -type d | head -80
           SDKMANAGER="/usr/lib/android-sdk/cmdline-tools/cmdline-tools/bin/sdkmanager"
           if [ -x "$SDKMANAGER" ]; then
-            "$SDKMANAGER" --sdk_root=/usr/lib/android-sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+            "$SDKMANAGER" --sdk_root=/usr/lib/android-sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
           fi
           godot --version
 
