@@ -311,29 +311,43 @@ func _end_turn() -> void:
 	queue_redraw()
 
 func _enemy_action() -> void:
+	# Enemy chooses a vulnerable adjacent player territory instead of the first link.
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
 			continue
+		var target := -1
+		var weakest := 999
 		for link in links:
-			var n: int = -1
+			var n := -1
 			if link.x == i:
 				n = link.y
 			elif link.y == i:
 				n = link.x
-			if n >= 0 and int(regions[n]["owner"]) == PLAYER and int(regions[i]["troops"]) >= int(regions[n]["troops"]) + 2:
-				var enemy_troops: int = int(regions[i]["troops"])
-				regions[n]["troops"] = max(1, int(regions[n]["troops"]) - 1)
-				regions[i]["troops"] = max(1, enemy_troops - 1)
-				if enemy_troops > int(regions[n]["troops"]) + 1:
-					regions[n]["owner"] = ENEMY
-					regions[n]["troops"] = max(1, enemy_troops - 2)
-				message = "Enemy counterattack near %s!" % regions[n]["name"]
-				return
+			if n >= 0 and int(regions[n]["owner"]) == PLAYER:
+				var defenders := int(regions[n]["troops"])
+				if defenders < weakest:
+					weakest = defenders
+					target = n
+		if target >= 0 and int(regions[i]["troops"]) >= weakest + 2:
+			var attackers := int(regions[i]["troops"])
+			var attack_power := attackers * 18 + randi_range(0, 8)
+			var defense_power := weakest * 20 + _terrain_bonus(str(regions[target]["terrain"])) + randi_range(0, 8)
+			if attack_power > defense_power:
+				regions[target]["owner"] = ENEMY
+				regions[target]["troops"] = max(1, attackers - 2)
+				regions[i]["troops"] = max(1, int(attackers / 2))
+				message = "Enemy captured %s! Defend your frontier." % regions[target]["name"]
+			else:
+				regions[target]["troops"] = max(1, weakest - 1)
+				regions[i]["troops"] = max(1, attackers - 1)
+				message = "Enemy assault repelled near %s." % regions[target]["name"]
+			return
+	# If no attack is possible, expand into a neutral neighboring region.
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
 			continue
 		for link in links:
-			var n: int = -1
+			var n := -1
 			if link.x == i:
 				n = link.y
 			elif link.y == i:
