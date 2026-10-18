@@ -38,7 +38,7 @@ jobs:
           find /usr/lib/android-sdk -maxdepth 3 -type d | head -80
           SDKMANAGER="/usr/lib/android-sdk/cmdline-tools/cmdline-tools/bin/sdkmanager"
           if [ -x "$SDKMANAGER" ]; then
-            "$SDKMANAGER" --sdk_root=/usr/lib/android-sdk "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            "$SDKMANAGER" --sdk_root=/usr/lib/android-sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           fi
           godot --version
 
