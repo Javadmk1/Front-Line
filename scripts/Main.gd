@@ -2,6 +2,7 @@ extends Node2D
 
 const PLAYER := 1
 const ENEMY := 2
+const SAVE_PATH := "user://front_line_save.cfg"
 const MAP_BG := Color("#202b2b")
 const ROAD := Color("#67716a")
 const PLAYER_COLOR := Color("#4f9bd8")
@@ -12,19 +13,21 @@ const SELECT_COLOR := Color("#f5d76e")
 var regions: Array[Dictionary] = []
 var selected_region: int = -1
 var turn_number: int = 1
-var message: String = "Select one of your blue regions, then tap a connected region."
+var coins: int = 10
+var message: String = "Select a blue region, then tap a connected region."
 var game_over: bool = false
+var mission_won: bool = false
 
 var region_names := [
 	"West Base", "Old Road", "North Field", "Pine Woods", "River Bend",
 	"Village", "Crossroads", "Hill", "Bridge", "Supply Depot",
 	"East Field", "Forest Edge", "Rail Junction", "Enemy Camp", "HQ"
 ]
-
 var links: Array[Vector2i] = []
 
 func _ready() -> void:
 	_build_map()
+	_load_game()
 	queue_redraw()
 
 func _build_map() -> void:
@@ -81,15 +84,17 @@ func _draw() -> void:
 func _draw_background_details() -> void:
 	for i in range(16):
 		var x := 35.0 + float(i) * 83.0
-		draw_line(Vector2(x, 105), Vector2(x - 15, 620), Color(0.7, 0.75, 0.65, 0.045), 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(36, 54), "FRONT LINE  /  OPERATION DAWN", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Color("#e5e2d4"))
-	draw_string(ThemeDB.fallback_font, Vector2(36, 82), "OFFLINE CAMPAIGN  •  PROTOTYPE", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#9ca99d"))
+		draw_line(Vector2(x, 105), Vector2(x - 15, 600), Color(0.7, 0.75, 0.65, 0.045), 1.0)
+	draw_string(ThemeDB.fallback_font, Vector2(36, 48), "FRONT LINE  /  OPERATION DAWN", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Color("#e5e2d4"))
+	draw_string(ThemeDB.fallback_font, Vector2(36, 76), "OFFLINE CAMPAIGN  •  MISSION 01", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#9ca99d"))
+	draw_string(ThemeDB.fallback_font, Vector2(900, 48), "SUPPLIES: %d" % coins, HORIZONTAL_ALIGNMENT_LEFT, 300, 20, Color("#f5d76e"))
+	draw_string(ThemeDB.fallback_font, Vector2(900, 76), "TERRITORIES: %d/15" % _count_owned(PLAYER), HORIZONTAL_ALIGNMENT_LEFT, 300, 14, Color("#b7c8bc"))
 
 func _draw_region(index: int) -> void:
 	var region: Dictionary = regions[index]
 	var pos: Vector2 = region["pos"]
-	var owner: int = region["owner"]
-	var troops: int = region["troops"]
+	var owner: int = int(region["owner"])
+	var troops: int = int(region["troops"])
 	var color: Color = NEUTRAL_COLOR
 	if owner == PLAYER:
 		color = PLAYER_COLOR
@@ -100,19 +105,24 @@ func _draw_region(index: int) -> void:
 	draw_circle(pos, 23.0, color.lightened(0.12))
 	if index == selected_region:
 		draw_arc(pos, 40.0, 0.0, TAU, 48, SELECT_COLOR, 4.0, true)
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-6, 6), str(troops), HORIZONTAL_ALIGNMENT_CENTER, 18, 19, Color("#ffffff"))
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-8, 6), str(troops), HORIZONTAL_ALIGNMENT_CENTER, 18, 19, Color("#ffffff"))
 	draw_string(ThemeDB.fallback_font, pos + Vector2(-85, 57), str(region["name"]), HORIZONTAL_ALIGNMENT_CENTER, 170, 16, Color("#e5e2d4"))
 	if index == 14:
 		draw_string(ThemeDB.fallback_font, pos + Vector2(-12, -42), "★", HORIZONTAL_ALIGNMENT_CENTER, 24, 20, Color("#f5d76e"))
 
 func _draw_hud() -> void:
-	draw_rect(Rect2(Vector2(25, 605), Vector2(1230, 90)), Color(0.06, 0.09, 0.09, 0.94), true)
-	draw_string(ThemeDB.fallback_font, Vector2(45, 634), "TURN %d" % turn_number, HORIZONTAL_ALIGNMENT_LEFT, 150, 18, Color("#f5d76e"))
-	draw_string(ThemeDB.fallback_font, Vector2(45, 660), message, HORIZONTAL_ALIGNMENT_LEFT, 900, 17, Color("#f1f1e8"))
-	draw_string(ThemeDB.fallback_font, Vector2(45, 682), "Blue: you   Red: enemy   Grey: neutral   •   Tap a blue region, then an adjacent region", HORIZONTAL_ALIGNMENT_LEFT, 1000, 13, Color("#aeb9ad"))
-	var button_color := Color("#b94f43") if not game_over else Color("#56645a")
-	draw_rect(Rect2(Vector2(1030, 620), Vector2(200, 52)), button_color, true)
-	draw_string(ThemeDB.fallback_font, Vector2(1050, 652), "END TURN  ›", HORIZONTAL_ALIGNMENT_LEFT, 170, 20, Color.WHITE)
+	draw_rect(Rect2(Vector2(25, 605), Vector2(1230, 90)), Color(0.06, 0.09, 0.09, 0.96), true)
+	draw_string(ThemeDB.fallback_font, Vector2(42, 630), "TURN %d" % turn_number, HORIZONTAL_ALIGNMENT_LEFT, 120, 17, Color("#f5d76e"))
+	draw_string(ThemeDB.fallback_font, Vector2(42, 655), message, HORIZONTAL_ALIGNMENT_LEFT, 800, 16, Color("#f1f1e8"))
+	draw_string(ThemeDB.fallback_font, Vector2(42, 680), "Tap blue then adjacent region • Reinforce costs 3 supplies", HORIZONTAL_ALIGNMENT_LEFT, 700, 13, Color("#aeb9ad"))
+	_draw_button(Rect2(Vector2(835, 618), Vector2(125, 54)), "REINFORCE", Color("#477d68"))
+	_draw_button(Rect2(Vector2(970, 618), Vector2(125, 54)), "END TURN", Color("#b94f43") if not game_over else Color("#56645a"))
+	_draw_button(Rect2(Vector2(1105, 618), Vector2(125, 54)), "RESTART", Color("#586c83"))
+
+func _draw_button(rect: Rect2, label: String, color: Color) -> void:
+	draw_rect(rect, color, true)
+	draw_rect(rect, color.lightened(0.18), false, 2.0)
+	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -121,9 +131,17 @@ func _input(event: InputEvent) -> void:
 		_handle_tap(event.position)
 
 func _handle_tap(pos: Vector2) -> void:
-	if game_over:
+	if Rect2(Vector2(1105, 618), Vector2(125, 54)).has_point(pos):
+		_restart_game()
 		return
-	if Rect2(Vector2(1030, 620), Vector2(200, 52)).has_point(pos):
+	if game_over:
+		message = "Mission ended. Tap RESTART to play again."
+		queue_redraw()
+		return
+	if Rect2(Vector2(835, 618), Vector2(125, 54)).has_point(pos):
+		_reinforce_selected()
+		return
+	if Rect2(Vector2(970, 618), Vector2(125, 54)).has_point(pos):
 		_end_turn()
 		return
 	var hit := _find_region(pos)
@@ -132,9 +150,9 @@ func _handle_tap(pos: Vector2) -> void:
 	if selected_region == -1:
 		if int(regions[hit]["owner"]) == PLAYER:
 			selected_region = hit
-			message = "Selected %s. Choose a connected destination." % regions[hit]["name"]
+			message = "Selected %s. Choose a connected region." % regions[hit]["name"]
 		else:
-			message = "Select a blue region first."
+			message = "Select one of your blue regions first."
 	elif hit == selected_region:
 		selected_region = -1
 		message = "Selection cleared."
@@ -144,9 +162,9 @@ func _handle_tap(pos: Vector2) -> void:
 	else:
 		if int(regions[hit]["owner"]) == PLAYER:
 			selected_region = hit
-			message = "Selected %s. Choose a connected destination." % regions[hit]["name"]
+			message = "Selected %s. Choose a connected region." % regions[hit]["name"]
 		else:
-			message = "That region is not connected. Choose a neighboring region."
+			message = "That region is not connected."
 	queue_redraw()
 
 func _find_region(pos: Vector2) -> int:
@@ -162,65 +180,82 @@ func _are_connected(a: int, b: int) -> bool:
 	return false
 
 func _move_or_attack(from: int, to: int) -> void:
-	if int(regions[from]["owner"]) != PLAYER:
-		message = "Only your regions can move."
-		return
 	var attacker: int = int(regions[from]["troops"])
 	var defender_owner: int = int(regions[to]["owner"])
 	var defender: int = int(regions[to]["troops"])
 	if attacker <= 1:
-		message = "This region needs at least 2 troop groups to attack."
+		message = "Not enough troops. Reinforce this region or wait for supplies."
 		return
 	if defender_owner == PLAYER:
-		message = "Reinforcement movement is planned for the next prototype."
+		var moved: int = max(1, int((attacker - 1) / 2))
+		regions[from]["troops"] = attacker - moved
+		regions[to]["troops"] = defender + moved
+		message = "Moved %d troop group(s) to %s." % [moved, regions[to]["name"]]
+		_save_game()
 		return
-	var attack_power := attacker * 20 + randi_range(-5, 10)
-	var defense_power := defender * 18 + (12 if defender_owner == ENEMY else 0) + randi_range(0, 8)
+	var attack_power: int = attacker * 20 + randi_range(-5, 10)
+	var defense_power: int = defender * 18 + (12 if defender_owner == ENEMY else 0) + randi_range(0, 8)
 	if attack_power > defense_power:
 		var survivors: int = max(1, attacker - max(1, int(defense_power / 25)))
 		regions[to]["owner"] = PLAYER
 		regions[to]["troops"] = survivors
 		regions[from]["troops"] = 1
-		message = "Victory! %s captured with %d troop group(s)." % [regions[to]["name"], survivors]
+		message = "Captured %s! Remaining troop groups: %d." % [regions[to]["name"], survivors]
 		if to == 14:
 			game_over = true
-			message = "MISSION COMPLETE! Enemy headquarters captured. Restart to replay."
+			mission_won = true
+			message = "MISSION COMPLETE! Enemy headquarters captured."
 	else:
 		regions[from]["troops"] = max(1, attacker - 1)
 		regions[to]["troops"] = max(1, defender - 1)
-		message = "Attack repelled at %s. Try another route or build strength." % regions[to]["name"]
+		message = "Attack repelled at %s. Regroup and try again." % regions[to]["name"]
 	_check_end_state()
+	_save_game()
+
+func _reinforce_selected() -> void:
+	if selected_region < 0 or int(regions[selected_region]["owner"]) != PLAYER:
+		message = "Select one of your blue regions before reinforcing."
+	elif coins < 3:
+		message = "Not enough supplies. End your turn to earn more."
+	else:
+		coins -= 3
+		regions[selected_region]["troops"] = int(regions[selected_region]["troops"]) + 2
+		message = "%s reinforced with 2 troop groups." % regions[selected_region]["name"]
+		_save_game()
+	queue_redraw()
 
 func _end_turn() -> void:
 	turn_number += 1
+	var income := _count_owned(PLAYER)
+	coins += income
 	_enemy_action()
 	if not game_over:
 		for i in range(regions.size()):
-			if int(regions[i]["owner"]) == PLAYER and int(regions[i]["troops"]) < 4:
+			if int(regions[i]["owner"]) == PLAYER and int(regions[i]["troops"]) < 5:
 				regions[i]["troops"] = int(regions[i]["troops"]) + 1
-		message = "Turn %d: supply delivered. Plan your next move." % turn_number
+		message = "Turn %d: +%d supplies delivered. Reinforce or expand." % [turn_number, income]
 	_check_end_state()
+	_save_game()
 	queue_redraw()
 
 func _enemy_action() -> void:
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
 			continue
-		var neighbors: Array[int] = []
 		for link in links:
+			var n: int = -1
 			if link.x == i:
-				neighbors.append(link.y)
+				n = link.y
 			elif link.y == i:
-				neighbors.append(link.x)
-		for n in neighbors:
-			if int(regions[n]["owner"]) == PLAYER and int(regions[i]["troops"]) >= int(regions[n]["troops"]) + 2:
+				n = link.x
+			if n >= 0 and int(regions[n]["owner"]) == PLAYER and int(regions[i]["troops"]) >= int(regions[n]["troops"]) + 2:
 				var enemy_troops: int = int(regions[i]["troops"])
 				regions[n]["troops"] = max(1, int(regions[n]["troops"]) - 1)
 				regions[i]["troops"] = max(1, enemy_troops - 1)
 				if enemy_troops > int(regions[n]["troops"]) + 1:
 					regions[n]["owner"] = ENEMY
 					regions[n]["troops"] = max(1, enemy_troops - 2)
-				message = "Enemy counterattack near %s." % regions[n]["name"]
+				message = "Enemy counterattack near %s!" % regions[n]["name"]
 				return
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
@@ -234,21 +269,66 @@ func _enemy_action() -> void:
 			if n >= 0 and int(regions[n]["owner"]) == 0:
 				regions[n]["owner"] = ENEMY
 				regions[n]["troops"] = 2
-				message = "Enemy advances into %s." % regions[n]["name"]
+				message = "Enemy advanced into %s." % regions[n]["name"]
 				return
 
 func _check_end_state() -> void:
-	var player_regions := 0
-	var enemy_regions := 0
+	if _count_owned(PLAYER) == 0:
+		game_over = true
+		mission_won = false
+		message = "MISSION FAILED. Your territories were lost."
+	elif _count_owned(ENEMY) == 0:
+		game_over = true
+		mission_won = true
+		message = "MISSION COMPLETE. Enemy forces defeated."
+	queue_redraw()
+
+func _count_owned(owner: int) -> int:
+	var count := 0
 	for region in regions:
-		if int(region["owner"]) == PLAYER:
-			player_regions += 1
-		elif int(region["owner"]) == ENEMY:
-			enemy_regions += 1
-	if player_regions == 0:
-		game_over = true
-		message = "MISSION FAILED. All friendly regions lost."
-	elif enemy_regions == 0:
-		game_over = true
-		message = "MISSION COMPLETE. Enemy territories liberated."
+		if int(region["owner"]) == owner:
+			count += 1
+	return count
+
+func _save_game() -> void:
+	var config := ConfigFile.new()
+	config.set_value("save", "turn", turn_number)
+	config.set_value("save", "coins", coins)
+	config.set_value("save", "game_over", game_over)
+	config.set_value("save", "mission_won", mission_won)
+	var saved_regions: Array[Dictionary] = []
+	for region in regions:
+		saved_regions.append({"owner": int(region["owner"]), "troops": int(region["troops"])})
+	config.set_value("save", "regions", saved_regions)
+	config.save(SAVE_PATH)
+
+func _load_game() -> void:
+	var config := ConfigFile.new()
+	if config.load(SAVE_PATH) != OK:
+		return
+	turn_number = int(config.get_value("save", "turn", 1))
+	coins = int(config.get_value("save", "coins", 10))
+	game_over = bool(config.get_value("save", "game_over", false))
+	mission_won = bool(config.get_value("save", "mission_won", false))
+	var saved_regions: Array = config.get_value("save", "regions", [])
+	if saved_regions.size() == regions.size():
+		for i in range(regions.size()):
+			regions[i]["owner"] = int(saved_regions[i].get("owner", 0))
+			regions[i]["troops"] = int(saved_regions[i].get("troops", 1))
+	if game_over:
+		message = "Saved mission complete. Tap RESTART to begin a new campaign."
+	else:
+		message = "Saved campaign loaded. Your progress is preserved."
+
+func _restart_game() -> void:
+	var config := ConfigFile.new()
+	config.save(SAVE_PATH)
+	turn_number = 1
+	coins = 10
+	selected_region = -1
+	game_over = false
+	mission_won = false
+	message = "New campaign started. Capture the enemy HQ!"
+	_build_map()
+	_save_game()
 	queue_redraw()
