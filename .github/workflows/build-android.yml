@@ -48,19 +48,37 @@ jobs:
           java -version
           echo "Checking Android SDK packages"
           find /usr/lib/android-sdk -maxdepth 3 -type d | head -80
-          SDKMANAGER="/usr/lib/android-sdk/cmdline-tools/cmdline-tools/bin/sdkmanager"
-          if [ -x "$SDKMANAGER" ]; then
-            "$SDKMANAGER" --sdk_root=/usr/lib/android-sdk "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
+          echo "Locating Android SDK manager..."
+          SDKMANAGER="$(find /usr/lib/android-sdk /opt /root -type f -path '*/cmdline-tools/*/bin/sdkmanager' -print -quit 2>/dev/null || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "::error::Android sdkmanager was not found in the build image."
+            find /usr/lib/android-sdk /opt /root -maxdepth 5 -type f -name sdkmanager -print 2>/dev/null || true
+            exit 1
           fi
+          SDK_ROOT="$(dirname "$(dirname "$(dirname "$(dirname "$SDKMANAGER")")")")"
+          echo "SDKMANAGER=$SDKMANAGER"
+          echo "SDK_ROOT=$SDK_ROOT"
+          mkdir -p "$SDK_ROOT"
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmdline-tools;latest" "cmake;3.10.2.4988404" "ndk;23.2.8568313"
+          sed -i "s|^export/android/android_sdk_path = .*|export/android/android_sdk_path = \"$SDK_ROOT\"|" "$SETTINGS"
+          echo "--- Confirm required SDK packages ---"
+          test -d "$SDK_ROOT/platform-tools"
+          test -d "$SDK_ROOT/platforms/android-34"
+          test -d "$SDK_ROOT/build-tools/34.0.0"
+          test -d "$SDK_ROOT/ndk/23.2.8568313"
+          test -d "$SDK_ROOT/cmake/3.10.2.4988404"
           godot --version
 
       - name: Import and validate project
         run: godot --headless --path . --editor --quit
 
       - name: Export debug APK
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/FrontLine-Android-Debug.apk --verbose
+          godot --headless --path . --export-debug "Android" build/FrontLine-Android-Debug.apk --verbose 2>&1 | tee build/export.log
           test -s build/FrontLine-Android-Debug.apk
 
       - name: Upload APK artifact
