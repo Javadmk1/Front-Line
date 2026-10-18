@@ -41,7 +41,6 @@ func _build_map() -> void:
 			"troops": 1,
 			"terrain": "plain"
 		})
-	# Grid links: horizontal and vertical routes.
 	for row in range(3):
 		for col in range(5):
 			var i := row * 5 + col
@@ -49,12 +48,10 @@ func _build_map() -> void:
 				links.append(Vector2i(i, i + 1))
 			if row < 2:
 				links.append(Vector2i(i, i + 5))
-	# Extra routes create alternate approaches.
 	links.append(Vector2i(1, 6))
 	links.append(Vector2i(3, 7))
 	links.append(Vector2i(6, 12))
 	links.append(Vector2i(8, 14))
-	# Player starts on the west; enemy holds the eastern command route.
 	_set_region(0, PLAYER, 4)
 	_set_region(1, PLAYER, 2)
 	_set_region(5, PLAYER, 2)
@@ -180,7 +177,7 @@ func _move_or_attack(from: int, to: int) -> void:
 	var attack_power := attacker * 20 + randi_range(-5, 10)
 	var defense_power := defender * 18 + (12 if defender_owner == ENEMY else 0) + randi_range(0, 8)
 	if attack_power > defense_power:
-		var survivors := max(1, attacker - max(1, int(defense_power / 25)))
+		var survivors: int = max(1, attacker - max(1, int(defense_power / 25)))
 		regions[to]["owner"] = PLAYER
 		regions[to]["troops"] = survivors
 		regions[from]["troops"] = 1
@@ -198,7 +195,6 @@ func _end_turn() -> void:
 	turn_number += 1
 	_enemy_action()
 	if not game_over:
-		# Friendly supply: controlled regions slowly recover one troop group.
 		for i in range(regions.size()):
 			if int(regions[i]["owner"]) == PLAYER and int(regions[i]["troops"]) < 4:
 				regions[i]["troops"] = int(regions[i]["troops"]) + 1
@@ -207,8 +203,6 @@ func _end_turn() -> void:
 	queue_redraw()
 
 func _enemy_action() -> void:
-	# Simple deterministic heuristic: attack an adjacent player region if stronger;
-	# otherwise capture a neutral region on the route toward the west.
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
 			continue
@@ -228,12 +222,11 @@ func _enemy_action() -> void:
 					regions[n]["troops"] = max(1, enemy_troops - 2)
 				message = "Enemy counterattack near %s." % regions[n]["name"]
 				return
-	# If no attack is sensible, enemy claims the nearest neutral region adjacent to its territory.
 	for i in range(regions.size()):
 		if int(regions[i]["owner"]) != ENEMY:
 			continue
 		for link in links:
-			var n := -1
+			var n: int = -1
 			if link.x == i:
 				n = link.y
 			elif link.y == i:
