@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: frontline-android-apk
+  cancel-in-progress: true
+
 jobs:
   export-android:
     name: Export Godot project to Android APK
@@ -85,6 +89,14 @@ jobs:
           test -d "$SDK_ROOT/build-tools/34.0.0"
           test -d "$SDK_ROOT/ndk/23.2.8568313"
           test -d "$SDK_ROOT/cmake/3.10.2.4988404"
+          echo "--- Verify SDK executables ---"
+          test -x "$SDK_ROOT/platform-tools/adb"
+          test -x "$SDK_ROOT/build-tools/34.0.0/apksigner"
+          test -x "$SDK_ROOT/build-tools/34.0.0/zipalign"
+          test -f "$SDK_ROOT/platforms/android-34/android.jar"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey
+          echo "--- Effective Android export preset ---"
+          grep -E '^(name=|platform=|keystore/debug=|keystore/debug_user=|keystore/debug_password=|gradle_build/use_gradle_build=|package/unique_name=|package/signed=|permissions/internet=)' export_presets.cfg
           godot --version
 
       - name: Import and validate project
