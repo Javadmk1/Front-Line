@@ -119,7 +119,7 @@ func _draw_menu() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(135, 280), "COMMANDER, YOUR SECTOR NEEDS YOU.", HORIZONTAL_ALIGNMENT_LEFT, 850, 24, Color("#e3c978"))
 	draw_string(ThemeDB.fallback_font, Vector2(135, 320), "Capture territories, manage supplies, reinforce units,", HORIZONTAL_ALIGNMENT_LEFT, 900, 19, Color("#d4ddd2"))
 	draw_string(ThemeDB.fallback_font, Vector2(135, 350), "and push toward the enemy headquarters.", HORIZONTAL_ALIGNMENT_LEFT, 900, 19, Color("#d4ddd2"))
-	_draw_button(Rect2(Vector2(135, 410), Vector2(280, 68)), "CONTINUE CAMPAIGN", Color("#477d68"))
+	_draw_button(Rect2(Vector2(135, 410), Vector2(280, 68)), "PLAY CAMPAIGN", Color("#477d68"))
 	_draw_button(Rect2(Vector2(435, 410), Vector2(280, 68)), "NEW CAMPAIGN", Color("#b94f43"))
 	draw_string(ThemeDB.fallback_font, Vector2(135, 535), "15 TERRITORIES  •  LOCAL SAVE  •  NO SERVER REQUIRED", HORIZONTAL_ALIGNMENT_LEFT, 950, 16, Color("#a9b7a9"))
 	draw_string(ThemeDB.fallback_font, Vector2(135, 570), "Prototype build 0.3  |  Designed for offline play", HORIZONTAL_ALIGNMENT_LEFT, 950, 14, Color("#7f9284"))
@@ -180,31 +180,23 @@ func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
-	# The project uses a fixed 1280x720 logical viewport with canvas_items stretch.
-	# Mouse/touch positions are already expressed in viewport coordinates here;
-	# calling make_input_local() applies the canvas transform a second time on
-	# some Android display configurations and makes every hit test miss.
+	# Convert screen/viewport input into the same canvas coordinate space used by _draw().
+	# This accounts for stretch scaling and letterboxing on Android devices.
 	if event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_handle_tap(_viewport_to_design(event.position))
+			_handle_tap(_screen_to_canvas(event.position))
 	elif event is InputEventScreenTouch:
 		if event.pressed and not event.canceled:
-			_handle_tap(_viewport_to_design(event.position))
+			_handle_tap(_screen_to_canvas(event.position))
 
-func _viewport_to_design(viewport_pos: Vector2) -> Vector2:
-	var viewport_size: Vector2 = get_viewport_rect().size
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		return viewport_pos
-	return Vector2(
-		viewport_pos.x * 1280.0 / viewport_size.x,
-		viewport_pos.y * 720.0 / viewport_size.y
-	)
+func _screen_to_canvas(screen_pos: Vector2) -> Vector2:
+	return get_global_transform_with_canvas().affine_inverse() * screen_pos
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
 		if Rect2(Vector2(135, 410), Vector2(280, 68)).has_point(pos):
 			show_menu = false
-			message = "Campaign resumed. Select a blue region to begin."
+			message = "Campaign started! Tap a blue region, then an adjacent region."
 		elif Rect2(Vector2(435, 410), Vector2(280, 68)).has_point(pos):
 			_restart_game()
 		queue_redraw()
