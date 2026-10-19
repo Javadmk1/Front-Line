@@ -180,10 +180,15 @@ func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
+	# Convert viewport touch/mouse coordinates into this Node2D's canvas coordinates.
+	# This keeps hit-testing aligned with drawn controls on Android screens with
+	# different aspect ratios and stretch scaling.
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_tap(event.position)
+		var local_event := make_input_local(event)
+		_handle_tap(local_event.position)
 	elif event is InputEventScreenTouch and event.pressed:
-		_handle_tap(event.position)
+		var local_event := make_input_local(event)
+		_handle_tap(local_event.position)
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
