@@ -80,16 +80,24 @@ func _set_region(index: int, owner: int, troops: int) -> void:
 	regions[index]["troops"] = troops
 
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), MAP_BG)
+	# Polished low-cost tactical map: layered background, grid and map framing.
+	draw_rect(Rect2(Vector2.ZERO, Vector2(1280, 720)), Color("#111b20"))
+	for row in range(9):
+		for col in range(16):
+			var cell := Rect2(Vector2(col * 82 - 12, row * 82 - 8), Vector2(78, 78))
+			draw_rect(cell, Color(0.20, 0.30, 0.30, 0.13), false, 1.0)
+	draw_circle(Vector2(640, 350), 410.0, Color(0.20, 0.31, 0.28, 0.10))
 	if show_menu:
 		_draw_menu()
 		return
 	_draw_background_details()
+	# Road shadows and luminous route lines improve map readability.
 	for link in links:
 		var a: Vector2 = regions[link.x]["pos"]
 		var b: Vector2 = regions[link.y]["pos"]
-		draw_line(a, b, ROAD, 8.0, true)
-		draw_line(a, b, Color("#313b36"), 2.0, true)
+		draw_line(a + Vector2(0, 4), b + Vector2(0, 4), Color("#0a1114"), 13.0, true)
+		draw_line(a, b, Color("#344b4a"), 8.0, true)
+		draw_line(a, b, Color("#7d9483"), 2.0, true)
 	for i in range(regions.size()):
 		_draw_region(i)
 	_draw_hud()
@@ -125,13 +133,13 @@ func _draw_menu() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(135, 570), "Prototype build 0.3  |  Designed for offline play", HORIZONTAL_ALIGNMENT_LEFT, 950, 14, Color("#7f9284"))
 
 func _draw_background_details() -> void:
-	for i in range(16):
-		var x := 35.0 + float(i) * 83.0
-		draw_line(Vector2(x, 105), Vector2(x - 15, 600), Color(0.7, 0.75, 0.65, 0.045), 1.0)
-	draw_string(ThemeDB.fallback_font, Vector2(36, 48), "FRONT LINE  /  OPERATION DAWN", HORIZONTAL_ALIGNMENT_LEFT, -1, 25, Color("#e5e2d4"))
-	draw_string(ThemeDB.fallback_font, Vector2(36, 76), "OFFLINE CAMPAIGN  •  MISSION 01", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#9ca99d"))
-	draw_string(ThemeDB.fallback_font, Vector2(900, 48), "SUPPLIES: %d" % coins, HORIZONTAL_ALIGNMENT_LEFT, 300, 20, Color("#f5d76e"))
-	draw_string(ThemeDB.fallback_font, Vector2(900, 76), "TERRITORIES: %d/15" % _count_owned(PLAYER), HORIZONTAL_ALIGNMENT_LEFT, 300, 14, Color("#b7c8bc"))
+	# Top command strip.
+	draw_rect(Rect2(Vector2(18, 18), Vector2(1244, 76)), Color(0.04, 0.08, 0.09, 0.94), true)
+	draw_rect(Rect2(Vector2(18, 18), Vector2(1244, 76)), Color("#50665e"), false, 2.0)
+	draw_string(ThemeDB.fallback_font, Vector2(38, 49), "FRONT LINE", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Color("#f0ead7"))
+	draw_string(ThemeDB.fallback_font, Vector2(38, 75), "OPERATION DAWN  /  MISSION 01", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("#9ca99d"))
+	draw_string(ThemeDB.fallback_font, Vector2(820, 49), "SUPPLIES  %d" % coins, HORIZONTAL_ALIGNMENT_LEFT, 220, 19, Color("#f5d76e"))
+	draw_string(ThemeDB.fallback_font, Vector2(820, 75), "CONTROLLED SECTORS  %d / 15" % _count_owned(PLAYER), HORIZONTAL_ALIGNMENT_LEFT, 300, 13, Color("#b7c8bc"))
 
 func _draw_region(index: int) -> void:
 	var region: Dictionary = regions[index]
@@ -143,11 +151,16 @@ func _draw_region(index: int) -> void:
 		color = PLAYER_COLOR
 	elif owner == ENEMY:
 		color = ENEMY_COLOR
-	draw_circle(pos, 35.0, Color("#141c1b"))
-	draw_circle(pos, 29.0, color)
-	draw_circle(pos, 23.0, color.lightened(0.12))
-	if index == selected_region:
-		draw_arc(pos, 40.0, 0.0, TAU, 48, SELECT_COLOR, 4.0, true)
+
+	# Territory node with soft shadow, outer faction ring and layered core.
+	draw_circle(pos + Vector2(0, 5), 43.0, Color(0.0, 0.0, 0.0, 0.34))
+	draw_circle(pos, 40.0, Color("#0c1417"))
+	draw_arc(pos, 38.0, 0.0, TAU, 48, color.darkened(0.20), 5.0, true)
+	draw_circle(pos, 31.0, color.darkened(0.25))
+	draw_circle(pos, 26.0, color)
+	draw_arc(pos, 23.0, PI, TAU, 32, color.lightened(0.38), 2.0, true)
+
+	# Terrain badge.
 	var terrain_mark := ""
 	match str(region["terrain"]):
 		"forest":
@@ -159,11 +172,23 @@ func _draw_region(index: int) -> void:
 		"depot":
 			terrain_mark = "+"
 	if not terrain_mark.is_empty():
-		draw_string(ThemeDB.fallback_font, pos + Vector2(20, -18), terrain_mark, HORIZONTAL_ALIGNMENT_CENTER, 18, 13, Color("#f5d76e"))
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-8, 6), str(troops), HORIZONTAL_ALIGNMENT_CENTER, 18, 19, Color("#ffffff"))
-	draw_string(ThemeDB.fallback_font, pos + Vector2(-85, 57), str(region["name"]), HORIZONTAL_ALIGNMENT_CENTER, 170, 16, Color("#e5e2d4"))
+		draw_circle(pos + Vector2(25, -23), 13.0, Color("#172321"))
+		draw_string(ThemeDB.fallback_font, pos + Vector2(19, -18), terrain_mark, HORIZONTAL_ALIGNMENT_CENTER, 16, 14, Color("#f5d76e"))
+
+	# Troop count chip.
+	draw_circle(pos + Vector2(0, 1), 13.0, Color("#172027"))
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-8, 7), str(troops), HORIZONTAL_ALIGNMENT_CENTER, 16, 18, Color("#ffffff"))
+	if index == selected_region:
+		draw_arc(pos, 46.0, 0.0, TAU, 56, SELECT_COLOR, 4.0, true)
+		draw_circle(pos, 50.0, Color(0.96, 0.84, 0.43, 0.08))
 	if index == 14:
-		draw_string(ThemeDB.fallback_font, pos + Vector2(-12, -42), "★", HORIZONTAL_ALIGNMENT_CENTER, 24, 20, Color("#f5d76e"))
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-9, -48), "★", HORIZONTAL_ALIGNMENT_CENTER, 20, 20, Color("#f5d76e"))
+
+	# Nameplate under each territory.
+	var plate := Rect2(pos + Vector2(-83, 43), Vector2(166, 23))
+	draw_rect(plate, Color(0.04, 0.08, 0.09, 0.88), true)
+	draw_rect(plate, Color(color.r, color.g, color.b, 0.65), false, 1.0)
+	draw_string(ThemeDB.fallback_font, pos + Vector2(-79, 59), str(region["name"]), HORIZONTAL_ALIGNMENT_CENTER, 158, 13, Color("#edf2e9"))
 
 func _draw_hud() -> void:
 	draw_rect(Rect2(Vector2(25, 605), Vector2(1230, 90)), Color(0.06, 0.09, 0.09, 0.96), true)
