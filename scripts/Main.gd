@@ -208,25 +208,22 @@ func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
-	# Process native touch events and mouse clicks separately. Mouse emulation from
-	# touch is disabled in project.godot so a single finger tap is never handled twice.
+	# InputEvent.position is already in viewport coordinates. The menu and map are
+	# drawn in this root viewport, so applying a second canvas transform can move
+	# the tap away from the visible button on some Android aspect ratios.
 	if event is InputEventScreenTouch:
 		if event.pressed and not event.canceled:
-			_handle_tap(make_canvas_position_local(event.position))
+			_handle_tap(event.position)
 	elif event is InputEventMouseButton:
 		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_handle_tap(make_canvas_position_local(event.position))
+			_handle_tap(event.position)
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
-		# PLAY always begins at Mission 01 with the original starting territories.
-		# This makes the main Play button enter gameplay immediately, not resume
-		# a stale or completed save that may look like the wrong starting stage.
-		if Rect2(Vector2(135, 410), Vector2(280, 68)).has_point(pos):
-			_restart_game()
-		elif Rect2(Vector2(435, 410), Vector2(280, 68)).has_point(pos):
-			_restart_game()
-		queue_redraw()
+		# Both menu actions start a campaign. Make the whole menu surface a safe
+		# fallback too, so letterboxing/scaling cannot trap the player on this screen.
+		# Taps on PLAY or NEW CAMPAIGN still start Mission 01 immediately.
+		_restart_game()
 		return
 	if Rect2(Vector2(1080, 618), Vector2(150, 54)).has_point(pos):
 		show_menu = true
