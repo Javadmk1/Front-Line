@@ -27,8 +27,11 @@ var region_names := [
 var links: Array[Vector2i] = []
 
 func _ready() -> void:
+	# Seed combat randomness once; keep all gameplay fully offline.
+	randomize()
 	_build_map()
 	_load_game()
+	_check_end_state()
 	queue_redraw()
 
 func _build_map() -> void:
@@ -268,8 +271,9 @@ func _handle_tap(pos: Vector2) -> void:
 	queue_redraw()
 
 func _find_region(pos: Vector2) -> int:
+	# Slightly larger hit area makes territory selection reliable on phone screens.
 	for i in range(regions.size()):
-		if pos.distance_to(regions[i]["pos"]) <= 38.0:
+		if pos.distance_to(regions[i]["pos"]) <= 46.0:
 			return i
 	return -1
 
@@ -327,6 +331,10 @@ func _reinforce_selected() -> void:
 	queue_redraw()
 
 func _end_turn() -> void:
+	if game_over:
+		message = "Mission ended. Start a new campaign to continue."
+		queue_redraw()
+		return
 	turn_number += 1
 	var income := _count_owned(PLAYER)
 	if int(regions[9]["owner"]) == PLAYER:
@@ -437,17 +445,28 @@ func _load_game() -> void:
 	var config := ConfigFile.new()
 	if config.load(SAVE_PATH) != OK:
 		return
-	turn_number = int(config.get_value("save", "turn", 1))
-	coins = int(config.get_value("save", "coins", 10))
+	# Reject invalid/corrupt saves instead of loading impossible campaign values.
+	var saved_regions: Array = config.get_value("save", "regions", [])
+	if saved_regions.size() != regions.size():
+		return
+	turn_number = max(1, int(config.get_value("save", "turn", 1)))
+	coins = max(0, int(config.get_value("save", "coins", 10)))
 	game_over = bool(config.get_value("save", "game_over", false))
 	mission_won = bool(config.get_value("save", "mission_won", false))
-	var saved_regions: Array = config.get_value("save", "regions", [])
-	if saved_regions.size() == regions.size():
-		for i in range(regions.size()):
-			regions[i]["owner"] = int(saved_regions[i].get("owner", 0))
-			regions[i]["troops"] = int(saved_regions[i].get("troops", 1))
+	# Validate every entry first so a bad save cannot partially alter the map.
+	for saved_value in saved_regions:
+		if not saved_value is Dictionary:
+			return
+		var owner := int(saved_value.get("owner", -1))
+		var troops := int(saved_value.get("troops", 0))
+		if owner < 0 or owner > ENEMY or troops < 1:
+			return
+	for i in range(regions.size()):
+		var saved: Dictionary = saved_regions[i]
+		regions[i]["owner"] = int(saved["owner"])
+		regions[i]["troops"] = int(saved["troops"])
 	if game_over:
-		message = "Saved mission complete. Tap RESTART to begin a new campaign."
+		message = "Saved mission ended. Start a new campaign to play again."
 	else:
 		message = "Saved campaign loaded. Your progress is preserved."
 
