@@ -455,7 +455,7 @@ func _load_game() -> void:
 	mission_won = bool(config.get_value("save", "mission_won", false))
 	# Validate every entry first so a bad save cannot partially alter the map.
 	for saved_value in saved_regions:
-		if not saved_value is Dictionary:
+		if not (saved_value is Dictionary):
 			return
 		var owner := int(saved_value.get("owner", -1))
 		var troops := int(saved_value.get("troops", 0))
