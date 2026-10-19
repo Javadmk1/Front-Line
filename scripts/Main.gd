@@ -180,15 +180,25 @@ func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
-	# Convert viewport touch/mouse coordinates into this Node2D's canvas coordinates.
-	# This keeps hit-testing aligned with drawn controls on Android screens with
-	# different aspect ratios and stretch scaling.
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var local_event := make_input_local(event)
-		_handle_tap(local_event.position)
-	elif event is InputEventScreenTouch and event.pressed:
-		var local_event := make_input_local(event)
-		_handle_tap(local_event.position)
+	# The project uses a fixed 1280x720 logical viewport with canvas_items stretch.
+	# Mouse/touch positions are already expressed in viewport coordinates here;
+	# calling make_input_local() applies the canvas transform a second time on
+	# some Android display configurations and makes every hit test miss.
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_handle_tap(_viewport_to_design(event.position))
+	elif event is InputEventScreenTouch:
+		if event.pressed and not event.canceled:
+			_handle_tap(_viewport_to_design(event.position))
+
+func _viewport_to_design(viewport_pos: Vector2) -> Vector2:
+	var viewport_size: Vector2 = get_viewport_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return viewport_pos
+	return Vector2(
+		viewport_pos.x * 1280.0 / viewport_size.x,
+		viewport_pos.y * 720.0 / viewport_size.y
+	)
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
