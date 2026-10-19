@@ -222,9 +222,11 @@ func _screen_to_canvas(screen_pos: Vector2) -> Vector2:
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
+		# PLAY always begins at Mission 01 with the original starting territories.
+		# This makes the main Play button enter gameplay immediately, not resume
+		# a stale or completed save that may look like the wrong starting stage.
 		if Rect2(Vector2(135, 410), Vector2(280, 68)).has_point(pos):
-			show_menu = false
-			message = "Campaign started! Tap a blue region, then an adjacent region."
+			_restart_game()
 		elif Rect2(Vector2(435, 410), Vector2(280, 68)).has_point(pos):
 			_restart_game()
 		queue_redraw()
