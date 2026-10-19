@@ -208,17 +208,14 @@ func _draw_button(rect: Rect2, label: String, color: Color) -> void:
 	draw_string(ThemeDB.fallback_font, rect.position + Vector2(10, 32), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 20, 14, Color.WHITE)
 
 func _input(event: InputEvent) -> void:
-	# Convert screen/viewport input into the same canvas coordinate space used by _draw().
-	# This accounts for stretch scaling and letterboxing on Android devices.
-	if event is InputEventMouseButton:
-		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			_handle_tap(_screen_to_canvas(event.position))
-	elif event is InputEventScreenTouch:
+	# Process native touch events and mouse clicks separately. Mouse emulation from
+	# touch is disabled in project.godot so a single finger tap is never handled twice.
+	if event is InputEventScreenTouch:
 		if event.pressed and not event.canceled:
-			_handle_tap(_screen_to_canvas(event.position))
-
-func _screen_to_canvas(screen_pos: Vector2) -> Vector2:
-	return get_global_transform_with_canvas().affine_inverse() * screen_pos
+			_handle_tap(make_canvas_position_local(event.position))
+	elif event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_handle_tap(make_canvas_position_local(event.position))
 
 func _handle_tap(pos: Vector2) -> void:
 	if show_menu:
